@@ -1,21 +1,43 @@
 // display controller
-var uiController = (function () {})();
+var uiController = (function () {
+
+  var DOMstrings = {
+    inputType: ".add__type",
+    inputDescription: ".add__description",
+    inputValue: ".add__value",
+    addBtn: ".add__btn",
+  }
+
+  return {
+    getInput: function(){
+      return{
+        type: document.querySelector(DOMstrings.inputType).value,
+        description: document.querySelector(DOMstrings.inputDescription).value,
+        value: document.querySelector(DOMstrings.inputValue).value
+      };
+    },
+    getDOMstrings: function() {return DOMstrings;}
+  };
+})();
 
 // sanhuugiin ajillah controller
-var financeController = (function () {})();
+var financeController = (function () {
+})();
 
 // programm connection controller
 var appController = (function (uiController, financeController) {
-  var ctrlAddItem = function () {
+    var ctrlAddItem = function () {
     // 1. oruulah ogogdoliig delgetsnees olj awah
-    console.log("Delgetsnees ogogdloo avah heseg");
+    console.log(uiController.getInput());
     // 2. olj awsan ogogdluudee sanhuugiin controller d damjuulj tend hadgalna
     // 3. olj awsan ogogluudee web deeree tohiroh hesegt n gargana
     // 4. toswiig tootsooloh
     // 5. etssiin uldegdel tootsoog delgetsend gargana
   };
 
-  document.querySelector(".add__btn").addEventListener("click", function () {
+  var setUpEventListeners = function(){
+    var DOM = uiController.getDOMstrings();
+    document.querySelector(DOM.addBtn).addEventListener("click", function () {
     ctrlAddItem();
   });
 
@@ -24,4 +46,13 @@ var appController = (function (uiController, financeController) {
       ctrlAddItem();
     }
   });
+  }
+  return{
+      init: function(){
+        console.log("Application started...");
+        setUpEventListeners();
+      }
+    }
 })(uiController, financeController);
+
+appController.init();
