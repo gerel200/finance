@@ -12,9 +12,55 @@ var uiController = (function () {
     expenseLabel: ".budget__expenses--value",
     percentageLabel: ".budget__expenses--percentage",
     containerDiv: ".container",
+    expensePercentageLabel: ".item__percentage",
+    dateLabel: ".budget__title--month",
+  };
+  var nodeListForeach = function (list, callback) {
+    for (var i = 0; i < list.length; i++) {
+      callback(list[i], i);
+    }
+  };
+
+  var formatMoney = function (too, type) {
+    too = "" + too;
+    var x = too.split("").reverse().join("");
+    var y = "";
+    var count = 1;
+    for (i = 0; i < x.length; i++) {
+      y = y + x[i];
+
+      if (count % 3 === 0) y = y + ",";
+      count++;
+    }
+    var z = y.split("").reverse().join("");
+
+    if (z[0] === ",") z = z.substring(1, z.length - 1);
+
+    if (type === "inc") z = "+ " + z;
+    else z = "- " + z;
+
+    return z;
   };
 
   return {
+    displayDate: function () {
+      var today = new Date();
+      document.querySelector(DOMstrings.dateLabel).textContent =
+        today.getFullYear() +
+        " year " +
+        today.getMonth() +
+        " month HOUSEHOLD FINANCE";
+    },
+
+    changeType: function(){
+      var fields = document.querySelectorAll(DOMstrings.inputType + ', ' + DOMstrings.inputDescription + ', ' + DOMstrings.inputValue);
+      nodeListForeach(fields, function(el){
+        el.classList.toggle('red-focus');
+      });
+
+      document.querySelector(DOMstrings.addBtn).classList.toggle("red");
+    },
+
     getInput: function () {
       return {
         type: document.querySelector(DOMstrings.inputType).value,
@@ -22,6 +68,18 @@ var uiController = (function () {
         value: parseInt(document.querySelector(DOMstrings.inputValue).value),
       };
     },
+
+    displayPercentages: function (allPercentages) {
+      // expense NODElist oloh
+      var elements = document.querySelectorAll(
+        DOMstrings.expensePercentageLabel
+      );
+      // element bolgonii huwid zarlagiin %iig  array -s awch shiwj oruulah
+      nodeListForeach(elements, function(el, index) {
+        el.textContent = allPercentages[index];
+      });
+    },
+
     getDOMstrings: function () {
       return DOMstrings;
     },
@@ -40,12 +98,15 @@ var uiController = (function () {
     },
 
     tosowiigUzuuleh: function (tusuw) {
-      document.querySelector(DOMstrings.budgetLabel).textContent = tusuw.tosow;
+      var type;
+      if(tusuw.tosow >0) type = 'inc';
+      else type = 'exp';
+      document.querySelector(DOMstrings.budgetLabel).textContent = formatMoney(tusuw.tosow, type);
       document.querySelector(DOMstrings.incomeLabel).textContent =
-        tusuw.totalInc;
+        formatMoney(tusuw.totalInc, 'inc');
       document.querySelector(DOMstrings.expenseLabel).textContent =
-        tusuw.totalExp;
-      if (tusuw !== 0) {
+        formatMoney(tusuw.totalExp, 'exp');
+      if (tusuw.huwi !== 0) {
         document.querySelector(DOMstrings.percentageLabel).textContent =
           tusuw.huwi + "%";
       } else {
@@ -54,7 +115,7 @@ var uiController = (function () {
       }
     },
 
-    deleteListItem: function(id){
+    deleteListItem: function (id) {
       var el = document.getElementById(id);
       el.parentNode.removeChild(el);
     },
@@ -73,7 +134,7 @@ var uiController = (function () {
       //in html use REPLACE to change
       html = html.replace("%id%", item.id);
       html = html.replace("%%DESCRIPTION%%", item.description);
-      html = html.replace("$$VALUE$$", item.value);
+      html = html.replace("$$VALUE$$", formatMoney(item.value, type));
       //finished html to DOM
       document.querySelector(list).insertAdjacentHTML("beforeend", html);
     },
@@ -93,6 +154,16 @@ var financeController = (function () {
     this.id = id;
     this.description = description;
     this.value = value;
+    this.percentage = -1;
+  };
+
+  Expense.prototype.calcPercentage = function (totalIncome) {
+    if (totalIncome > 0)
+      this.percentage = Math.round((this.value / totalIncome) * 100);
+    else this.percentage = 0;
+  };
+  Expense.prototype.getPercentage = function () {
+    return this.percentage;
   };
 
   var calculateTotal = function (type) {
@@ -114,6 +185,7 @@ var financeController = (function () {
     },
 
     tosow: 0,
+    huwi: 0,
   };
 
   return {
@@ -122,8 +194,21 @@ var financeController = (function () {
       calculateTotal("exp");
 
       data.tosow = data.totals.inc - data.totals.exp;
+      if (data.totals.inc > 0)
+        data.huwi = Math.round((data.totals.exp / data.totals.inc) * 100);
+      else data.huwi = 0;
+    },
 
-      data.huwi = Math.round((data.totals.exp / data.totals.inc) * 100);
+    calculatePercentages: function () {
+      data.items.exp.forEach(function (el) {
+        el.calcPercentage(data.totals.inc);
+      });
+    },
+
+    getPercentages: function () {
+      var allPercentages = data.items.exp.map(function (el) {
+        return el.getPercentage();
+      });
     },
 
     tosowiigAwah: function () {
@@ -183,13 +268,25 @@ var appController = (function (uiController, financeController) {
       // 3. olj awsan ogogluudee web deeree tohiroh hesegt n gargana
       uiController.addListItem(item, input.type);
       uiController.clearFields();
-      // 4. toswiig tootsooloh
-      financeController.tusuwTootsooloh();
-      // 5. etssiin uldegdel
-      var tosow = financeController.tosowiigAwah();
-      // 6.  tootsoog delgetsend gargana
-      uiController.tosowiigUzuuleh(tosow);
+
+      // tosowiig shineer tootsollod delgetsend uzuulne
+      updateTosow();
     }
+  };
+
+  var updateTosow = function () {
+    // 4. toswiig tootsooloh
+    financeController.tusuwTootsooloh();
+    // 5. etssiin uldegdel
+    var tosow = financeController.tosowiigAwah();
+    // 6.  tootsoog delgetsend gargana
+    uiController.tosowiigUzuuleh(tosow);
+    //7. element -n % tootsoh
+    financeController.calculatePercentages();
+    //8. element % iig huleej awah
+    var allPercentages = financeController.getPercentages();
+    //9. element % iig display d haruulna
+    uiController.displayPercentages(allPercentages);
   };
 
   var setUpEventListeners = function () {
@@ -203,13 +300,13 @@ var appController = (function (uiController, financeController) {
         ctrlAddItem();
       }
     });
+    document.querySelector(DOM.inputType).addEventListener('change', uiController.changeType);
 
     document
       .querySelector(DOM.containerDiv)
       .addEventListener("click", function (event) {
-        console.log(
-          event.target.parentNode.parentNode.parentNode.parentNode.id
-        );
+        var id = event.target.parentNode.parentNode.parentNode.parentNode.id;
+
         if (id) {
           var arr = id.split("-");
           var type = arr[0];
@@ -220,12 +317,14 @@ var appController = (function (uiController, financeController) {
           //2. delete element on display
           uiController.deleteListItem(id);
           //3. update balance sheet
+          updateTosow();
         }
       });
   };
   return {
     init: function () {
       console.log("Application started...");
+      uiController.displayDate();
       uiController.tosowiigUzuuleh({
         tosow: 0,
         huwi: 0,
